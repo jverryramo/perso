@@ -18,6 +18,20 @@ if ('serviceWorker' in navigator) {
 <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+  firebase.initializeApp({
+    apiKey: "AIzaSyCCGnkvijLtg_gff9_vYu08HjTV1JvXjSs",
+    authDomain: "perso-dashboard-a32aa.firebaseapp.com",
+    databaseURL: "https://perso-dashboard-a32aa-default-rtdb.firebaseio.com",
+    projectId: "perso-dashboard-a32aa",
+    storageBucket: "perso-dashboard-a32aa.firebasestorage.app",
+    messagingSenderId: "724376851346",
+    appId: "1:724376851346:web:162d850db102fcf272274b"
+  });
+  var fbDb = firebase.database();
+</script>
 <style>
   body { margin: 0; }
   @keyframes fadeUp { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
@@ -30,7 +44,7 @@ if ('serviceWorker' in navigator) {
 <div id="root"></div>
 
 <script type="text/babel" data-presets="react">
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect, useRef } = React;
 
 const C = {
   bg: "#F4F0E6", surface: "#FCFAF4", ink: "#2A2620", muted: "#8C8475",
@@ -90,9 +104,9 @@ function migrate(list) {
   });
 }
 function loadTasks() { try { const r = localStorage.getItem(KEY); return r ? migrate(JSON.parse(r)) : null; } catch { return null; } }
-function saveTasks(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} }
+function saveTasks(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} try { fbDb.ref("tasks").set(t); } catch {} }
 function loadCats() { try { const r = localStorage.getItem(CKEY); return r ? JSON.parse(r) : null; } catch { return null; } }
-function saveCats(c) { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} }
+function saveCats(c) { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} try { fbDb.ref("categories").set(c); } catch {} }
 
 function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
 function buildPeriods(start, count) {
@@ -158,6 +172,30 @@ function App() {
   const [managingCats, setManagingCats] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const today = useMemo(() => startOfToday(), []);
+
+  const skipFbSync = useRef(false);
+
+  useEffect(() => {
+    const tasksRef = fbDb.ref("tasks");
+    const catsRef = fbDb.ref("categories");
+    const onTasks = tasksRef.on("value", (snap) => {
+      if (skipFbSync.current) { skipFbSync.current = false; return; }
+      const val = snap.val();
+      if (val && Array.isArray(val)) {
+        const m = migrate(val);
+        setTasks(m);
+        try { localStorage.setItem(KEY, JSON.stringify(m)); } catch {}
+      }
+    });
+    const onCats = catsRef.on("value", (snap) => {
+      const val = snap.val();
+      if (val && Array.isArray(val)) {
+        setCategories(val);
+        try { localStorage.setItem(CKEY, JSON.stringify(val)); } catch {}
+      }
+    });
+    return () => { tasksRef.off("value", onTasks); catsRef.off("value", onCats); };
+  }, []);
 
   const catColor = (name) => { const c = categories.find((x) => x.name === name); return c ? c.color : C.muted; };
 
@@ -326,7 +364,7 @@ function App() {
           <button onClick={() => setConfirmReset(true)} style={{ color: C.muted, border: "1px solid " + C.border }} className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-black/5 transition-colors">
             <Icon name="rotate" size={13} /> Réinitialiser le suivi
           </button>
-          <span style={{ color: C.faint }} className="text-xs">Sauvegardé sur cet appareil · {tasks.length} tâches</span>
+          <span style={{ color: C.faint }} className="text-xs">☁️ Synchronisé dans le cloud · {tasks.length} tâches</span>
         </div>
       </div>
 
