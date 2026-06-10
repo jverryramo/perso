@@ -206,8 +206,8 @@ function App() {
   const pct = total ? Math.round((doneCount / total) * 100) : 0;
 
   const allWatch = useMemo(
-    () => occFor(allPeriods, tasks, today).filter((o) => o.s.state === "overdue" || o.s.state === "soon").sort((a, b) => a.s.days - b.s.days),
-    [allPeriods, tasks, today]
+    () => occFor(windowPeriods, tasks, today).filter((o) => o.s.state === "overdue" || o.s.state === "soon").sort((a, b) => a.s.days - b.s.days),
+    [windowPeriods, tasks, today]
   );
   const overdueCount = allWatch.filter((o) => o.s.state === "overdue").length;
   const soonCount = allWatch.filter((o) => o.s.state === "soon").length;
