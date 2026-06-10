@@ -165,6 +165,7 @@ function App() {
   const [filter, setFilter] = useState("Tous");
   const [editing, setEditing] = useState(null);
   const [managingCats, setManagingCats] = useState(false);
+  const [confirmReset, setConfirmReset] = useState(false);
   const today = useMemo(() => startOfToday(), []);
 
   const catColor = (name) => { const c = categories.find((x) => x.name === name); return c ? c.color : C.muted; };
@@ -196,9 +197,8 @@ function App() {
   }
   function removeTask(id) { update(tasks.filter((t) => t.id !== id)); setEditing(null); }
   function resetAll() {
-    if (window.confirm("Effacer toutes les cases cochées (le suivi) ? Les tâches sont conservées.")) {
-      update(tasks.map((t) => ({ ...t, completed: [] })));
-    }
+    update(tasks.map((t) => ({ ...t, completed: [] })));
+    setConfirmReset(false);
   }
   function commitCats(cleaned) {
     const map = {};
@@ -332,7 +332,7 @@ function App() {
         </section>
 
         <div className="mt-10 flex items-center justify-between flex-wrap gap-3">
-          <button onClick={resetAll} style={{ color: C.muted, border: "1px solid " + C.border }} className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-black/5 transition-colors">
+          <button onClick={() => setConfirmReset(true)} style={{ color: C.muted, border: "1px solid " + C.border }} className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-black/5 transition-colors">
             <Icon name="rotate" size={13} /> Réinitialiser le suivi
           </button>
           <span style={{ color: C.faint }} className="text-xs">Sauvegardé sur cet appareil · {tasks.length} tâches</span>
@@ -345,6 +345,19 @@ function App() {
 
       {editing && <TaskModal task={editing === "new" ? null : editing} categories={categories} onClose={() => setEditing(null)} onSave={saveTask} onDelete={removeTask} />}
       {managingCats && <CategoryModal categories={categories} onClose={() => setManagingCats(false)} onSave={commitCats} />}
+      {confirmReset && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(42,38,32,0.45)" }} onClick={() => setConfirmReset(false)}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: C.surface, fontFamily: "'Hanken Grotesk', sans-serif" }} className="w-full max-w-sm rounded-2xl p-6 text-center">
+            <div className="mx-auto mb-3 w-10 h-10 rounded-full flex items-center justify-center" style={{ background: C.overdueSoft }}><Icon name="rotate" size={20} color={C.overdue} /></div>
+            <h3 style={{ fontFamily: "'Fraunces', serif", color: C.ink }} className="text-lg font-semibold mb-2">Réinitialiser le suivi ?</h3>
+            <p style={{ color: C.muted }} className="text-sm mb-5">Toutes les cases cochées seront effacées. Les tâches sont conservées.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmReset(false)} style={{ color: C.muted, border: "1px solid " + C.border }} className="flex-1 text-sm py-2.5 rounded-xl hover:bg-black/5 transition-colors">Annuler</button>
+              <button onClick={resetAll} style={{ background: C.overdue }} className="flex-1 text-white text-sm font-medium py-2.5 rounded-xl hover:opacity-90 transition-opacity">Effacer</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
