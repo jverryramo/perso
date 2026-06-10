@@ -113,8 +113,11 @@ function occStatus(task, year, month, today) {
   const done = (task.completed || []).includes(year + "-" + month);
   const due = new Date(year, month - 1, task.day || 1); due.setHours(0,0,0,0);
   const days = Math.round((due - today) / 86400000);
+  const pk = year + "-" + month;
+  const beforeCreation = task.createdPeriod && pk <= task.createdPeriod && days < 0;
   let state;
   if (done) state = "done";
+  else if (beforeCreation) state = "upcoming";
   else if (days < 0) state = "overdue";
   else if (days <= (task.leadDays ?? 14)) state = "soon";
   else state = "upcoming";
@@ -180,7 +183,7 @@ function App() {
   }
   function saveTask(data) {
     if (data.id) update(tasks.map((t) => (t.id === data.id ? { ...t, ...data } : t)));
-    else update([...tasks, { ...data, id: "u" + Date.now(), completed: [] }]);
+    else { const now = new Date(); update([...tasks, { ...data, id: "u" + Date.now(), completed: [], createdPeriod: now.getFullYear() + "-" + (now.getMonth() + 1) }]); }
     setEditing(null);
   }
   function removeTask(id) { update(tasks.filter((t) => t.id !== id)); setEditing(null); }
