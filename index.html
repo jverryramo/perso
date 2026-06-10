@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Tableau de bord — maison & admin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+  body { margin: 0; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(8px);} to {opacity:1; transform:none;} }
+  .fu { animation: fadeUp .5s ease both; }
+  * { -webkit-tap-highlight-color: transparent; }
+  input:focus, select:focus, textarea:focus { outline: none; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo } = React;
+
+const C = {
+  bg: "#F4F0E6", surface: "#FCFAF4", ink: "#2A2620", muted: "#8C8475",
+  faint: "#B6AE9D", border: "#E5DECC", accent: "#4F6F52", accentSoft: "#E7EEE4",
+  overdue: "#B14B2C", overdueSoft: "#F6E5DC", soon: "#B5841F", soonSoft: "#F6ECD3", done: "#5C8A5E",
+};
+const MONTHS = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+const FREQS = [
+  { key:"annual", label:"Annuelle" }, { key:"semi", label:"Semestrielle" },
+  { key:"quarterly", label:"Trimestrielle" }, { key:"monthly", label:"Mensuelle" },
+  { key:"none", label:"Sans date" },
+];
+const FREQ_LABEL = { annual:"1×/an", semi:"2×/an", quarterly:"4×/an", monthly:"chaque mois", none:"" };
+
+const DEFAULT_CATS = [
+  { name:"Impôts", color:"#3F6E8C" }, { name:"Finances", color:"#4F6F52" },
+  { name:"Assurances", color:"#7A5C9E" }, { name:"SAAQ", color:"#2E8B8B" },
+  { name:"Santé", color:"#B5697E" }, { name:"Maison", color:"#A6713E" },
+  { name:"Véhicule", color:"#9A6A2E" }, { name:"Abonnements", color:"#6F7787" },
+  { name:"Autre", color:"#8C8475" },
+];
+
+const PATHS = {
+  plus: "M5 12h14 M12 5v14", check: "M20 6 9 17l-5-5",
+  pencil: "M12 20h9 M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z",
+  trash: "M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M10 11v6 M14 11v6",
+  bell: "M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0",
+  x: "M18 6 6 18 M6 6l12 12",
+  alert: "m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z M12 9v4 M12 17h.01",
+  clock: "M12 7v5l3 2", calendar: "M8 2v4 M16 2v4 M3 10h18",
+  link: "M9 17H7A5 5 0 0 1 7 7h2 M15 7h2a5 5 0 1 1 0 10h-2 M8 12h8",
+  rotate: "M3 12a9 9 0 1 0 3-6.7L3 8 M3 3v5h5",
+  repeat: "m17 2 4 4-4 4 M3 11v-1a4 4 0 0 1 4-4h14 M7 22l-4-4 4-4 M21 13v1a4 4 0 0 1-4 4H3",
+  list: "M3 17l2 2 4-4 M3 7l2 2 4-4 M13 6h8 M13 12h8 M13 18h8",
+  sliders: "M21 4h-7 M10 4H3 M21 12h-9 M8 12H3 M21 20h-5 M12 20H3 M14 2v4 M8 10v4 M16 18v4",
+};
+function Icon({ name, size = 16, color = "currentColor", stroke = 2, fill = "none" }) {
+  const extra = name === "clock" ? <circle cx="12" cy="12" r="9" />
+    : name === "calendar" ? <rect x="3" y="4" width="18" height="18" rx="2" /> : null;
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke={color}
+      strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round" style={{ display: "block" }}>
+      {extra}
+      {PATHS[name].split(" M").map((seg, i) => <path key={i} d={(i ? "M" : "") + seg} />)}
+    </svg>
+  );
+}
+
+const DEFAULTS = [
+  { id:"d1", title:"Déclaration de revenus (fédéral + Québec)", category:"Impôts", freq:"annual", month:4, day:30, leadDays:45, notes:"Date limite le 30 avril. Travailleurs autonomes : produire avant le 15 juin, mais tout solde dû reste payable le 30 avril.", link:"" },
+  { id:"d2", title:"Cotisation REER", category:"Finances", freq:"annual", month:3, day:1, leadDays:30, notes:"Date limite ~60 jours après la fin d'année pour déduire sur l'année précédente.", link:"" },
+  { id:"d3", title:"Compilation des frais médicaux", category:"Santé", freq:"annual", month:2, day:15, leadDays:30, notes:"Rassembler reçus et remboursements d'assurance pour le crédit d'impôt.", link:"" },
+  { id:"d4", title:"Réinitialisation des droits CELI", category:"Finances", freq:"annual", month:1, day:1, leadDays:15, notes:"Nouveaux droits de cotisation au 1er janvier.", link:"" },
+  { id:"d5", title:"Cotisation REEE (subvention)", category:"Finances", freq:"annual", month:12, day:15, leadDays:30, notes:"Cotiser avant le 31 déc pour la subvention de l'année en cours.", link:"" },
+  { id:"d6", title:"Renouvellement assurance auto", category:"Assurances", freq:"annual", month:6, day:1, leadDays:30, notes:"Ajuste le mois selon ta police. Magasiner avant le renouvellement.", link:"" },
+  { id:"d7", title:"Renouvellement assurance habitation", category:"Assurances", freq:"annual", month:9, day:1, leadDays:30, notes:"Ajuste le mois selon ta police.", link:"" },
+  { id:"d8", title:"Immatriculation véhicule (SAAQ)", category:"Véhicule", freq:"annual", month:3, day:1, leadDays:21, notes:"Renouvellement annuel — ajuste le mois selon ton avis de la SAAQ.", link:"https://saaq.gouv.qc.ca" },
+  { id:"d9", title:"Permis de conduire (SAAQ)", category:"SAAQ", freq:"annual", month:1, day:1, leadDays:30, notes:"Lié à ta date de naissance ; cycle de 2 à 8 ans. Ajuste mois/année selon ton dossier.", link:"https://saaq.gouv.qc.ca" },
+  { id:"d10", title:"Pneus d'hiver — installation", category:"Véhicule", freq:"annual", month:11, day:1, leadDays:14, notes:"Obligatoires du 1er déc au 15 mars au Québec.", link:"" },
+  { id:"d11", title:"Pneus d'été — retrait", category:"Véhicule", freq:"annual", month:4, day:1, leadDays:14, notes:"", link:"" },
+  { id:"d13", title:"Bilan financier / révision du budget", category:"Finances", freq:"annual", month:1, day:15, leadDays:14, notes:"Faire le point sur l'année écoulée et planifier.", link:"" },
+  { id:"d14", title:"Renouvellement domaines & abonnements", category:"Abonnements", freq:"annual", month:1, day:1, leadDays:21, notes:"Ajuste selon tes dates réelles de renouvellement.", link:"" },
+  { id:"h1", title:"Changer le filtre de l'échangeur d'air / fournaise", category:"Maison", freq:"quarterly", month:1, day:1, leadDays:7, notes:"Aux 3 mois environ selon le type de filtre.", link:"" },
+  { id:"h2", title:"Tester détecteurs de fumée et CO", category:"Maison", freq:"semi", month:3, day:1, leadDays:7, notes:"Vérifier le fonctionnement et remplacer les piles au besoin.", link:"" },
+  { id:"h3", title:"Entretien thermopompe / climatiseur", category:"Maison", freq:"annual", month:5, day:1, leadDays:14, notes:"Nettoyage des filtres et inspection avant la saison chaude.", link:"" },
+  { id:"h4", title:"Entretien chauffe-eau et nettoyage gouttières", category:"Maison", freq:"annual", month:10, day:1, leadDays:14, notes:"Purge du chauffe-eau, nettoyage des gouttières avant l'hiver.", link:"" },
+  { id:"h5", title:"Hivernisation extérieure (eau, boyaux, terrasse)", category:"Maison", freq:"annual", month:10, day:15, leadDays:14, notes:"Fermer l'eau extérieure, ranger boyaux et mobilier.", link:"" },
+];
+
+const KEY = "admin-tasks-v1", CKEY = "admin-cats-v1";
+function migrate(list) {
+  return list.map((x) => {
+    const freq = x.freq || (x.month ? "annual" : "none");
+    const completed = x.completed || (x.completedYears || []).map((y) => y + "-" + x.month);
+    return { ...x, freq, completed };
+  });
+}
+function loadTasks() { try { const r = localStorage.getItem(KEY); return r ? migrate(JSON.parse(r)) : null; } catch { return null; } }
+function saveTasks(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} }
+function loadCats() { try { const r = localStorage.getItem(CKEY); return r ? JSON.parse(r) : null; } catch { return null; } }
+function saveCats(c) { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} }
+
+function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
+function buildPeriods(start, count) {
+  const out = []; let y = start.getFullYear(), m = start.getMonth() + 1;
+  for (let i = 0; i < count; i++) { out.push({ year: y, month: m, key: y + "-" + m }); m++; if (m > 12) { m = 1; y++; } }
+  return out;
+}
+function occurrenceMonths(task) {
+  if (task.freq === "none") return [];
+  if (task.freq === "monthly") return [1,2,3,4,5,6,7,8,9,10,11,12];
+  if (!task.month) return [];
+  const m = task.month;
+  if (task.freq === "quarterly") return [0,3,6,9].map((o) => ((m - 1 + o) % 12) + 1).sort((a,b)=>a-b);
+  if (task.freq === "semi") return [0,6].map((o) => ((m - 1 + o) % 12) + 1).sort((a,b)=>a-b);
+  return [m];
+}
+function occStatus(task, year, month, today) {
+  const done = (task.completed || []).includes(year + "-" + month);
+  const due = new Date(year, month - 1, task.day || 1); due.setHours(0,0,0,0);
+  const days = Math.round((due - today) / 86400000);
+  let state;
+  if (done) state = "done";
+  else if (days < 0) state = "overdue";
+  else if (days <= (task.leadDays ?? 14)) state = "soon";
+  else state = "upcoming";
+  return { done, due, days, state };
+}
+function occFor(periods, list, today) {
+  const out = [];
+  periods.forEach((p) => list.forEach((t) => {
+    if (occurrenceMonths(t).includes(p.month))
+      out.push({ task: t, year: p.year, month: p.month, key: p.key, s: occStatus(t, p.year, p.month, today) });
+  }));
+  return out;
+}
+function daysLabel(d) {
+  if (d === 0) return "aujourd'hui"; if (d === 1) return "demain";
+  if (d > 0) return "dans " + d + " j"; if (d === -1) return "hier";
+  return "en retard de " + Math.abs(d) + " j";
+}
+function occText(freq, month) {
+  if (freq === "monthly") return "Apparaîtra chaque mois.";
+  if (freq === "none") return "Sans date fixe.";
+  const ms = occurrenceMonths({ freq, month }).map((m) => MONTHS[m - 1].toLowerCase());
+  if (ms.length <= 1) return "Une fois par an, en " + (ms[0] || "…") + ".";
+  return "Apparaîtra en " + ms.slice(0, -1).join(", ") + " et " + ms[ms.length - 1] + ".";
+}
+
+const HORIZON = 18;
+
+function App() {
+  const [tasks, setTasks] = useState(() => {
+    const t = loadTasks();
+    if (t) return t;
+    const d = migrate(DEFAULTS); saveTasks(d); return d;
+  });
+  const [categories, setCategories] = useState(() => loadCats() || DEFAULT_CATS);
+  const [filter, setFilter] = useState("Tous");
+  const [editing, setEditing] = useState(null);
+  const [managingCats, setManagingCats] = useState(false);
+  const today = useMemo(() => startOfToday(), []);
+
+  const catColor = (name) => { const c = categories.find((x) => x.name === name); return c ? c.color : C.muted; };
+
+  const { windowPeriods, allPeriods } = useMemo(() => {
+    const firstThisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const wp = buildPeriods(firstThisMonth, HORIZON);
+    const catchP = buildPeriods(new Date(today.getFullYear(), 0, 1), today.getMonth());
+    return { windowPeriods: wp, allPeriods: [...catchP, ...wp] };
+  }, [today]);
+
+  const rangeLabel = useMemo(() => {
+    const a = windowPeriods[0], b = windowPeriods[windowPeriods.length - 1];
+    return MONTHS[a.month - 1].toLowerCase() + " " + a.year + " → " + MONTHS[b.month - 1].slice(0,3).toLowerCase() + ". " + b.year;
+  }, [windowPeriods]);
+
+  function update(next) { setTasks(next); saveTasks(next); }
+  function toggleDone(id, year, month) {
+    update(tasks.map((t) => {
+      if (t.id !== id) return t;
+      const k = year + "-" + month, c = t.completed || [];
+      return { ...t, completed: c.includes(k) ? c.filter((x) => x !== k) : [...c, k] };
+    }));
+  }
+  function saveTask(data) {
+    if (data.id) update(tasks.map((t) => (t.id === data.id ? { ...t, ...data } : t)));
+    else update([...tasks, { ...data, id: "u" + Date.now(), completed: [] }]);
+    setEditing(null);
+  }
+  function removeTask(id) { update(tasks.filter((t) => t.id !== id)); setEditing(null); }
+  function resetAll() {
+    if (window.confirm("Effacer toutes les cases cochées (le suivi) ? Les tâches sont conservées.")) {
+      update(tasks.map((t) => ({ ...t, completed: [] })));
+    }
+  }
+  function commitCats(cleaned) {
+    const map = {};
+    cleaned.forEach((c) => { if (c.orig && c.orig !== c.name) map[c.orig] = c.name; });
+    categories.forEach((old) => { if (!cleaned.some((c) => c.orig === old.name)) map[old.name] = "Autre"; });
+    const finalCats = cleaned.map(({ name, color }) => ({ name, color }));
+    setCategories(finalCats); saveCats(finalCats);
+    if (Object.keys(map).length) update(tasks.map((t) => (map[t.category] ? { ...t, category: map[t.category] } : t)));
+    if (filter !== "Tous" && map[filter]) setFilter(map[filter]);
+    setManagingCats(false);
+  }
+
+  const fTasks = filter === "Tous" ? tasks : tasks.filter((t) => t.category === filter);
+  const allWindowOcc = useMemo(() => occFor(windowPeriods, tasks, today), [windowPeriods, tasks, today]);
+  const total = allWindowOcc.length;
+  const doneCount = allWindowOcc.filter((o) => o.s.done).length;
+  const pct = total ? Math.round((doneCount / total) * 100) : 0;
+
+  const allWatch = useMemo(
+    () => occFor(allPeriods, tasks, today).filter((o) => o.s.state === "overdue" || o.s.state === "soon").sort((a, b) => a.s.days - b.s.days),
+    [allPeriods, tasks, today]
+  );
+  const overdueCount = allWatch.filter((o) => o.s.state === "overdue").length;
+  const soonCount = allWatch.filter((o) => o.s.state === "soon").length;
+  const watch = filter === "Tous" ? allWatch : allWatch.filter((o) => o.task.category === filter);
+
+  const windowOcc = filter === "Tous" ? allWindowOcc : allWindowOcc.filter((o) => o.task.category === filter);
+  const byPeriod = useMemo(() => {
+    const m = {};
+    windowOcc.forEach((o) => { (m[o.key] = m[o.key] || []).push(o); });
+    Object.values(m).forEach((arr) => arr.sort((a, b) => (a.task.day || 1) - (b.task.day || 1) || a.task.title.localeCompare(b.task.title)));
+    return m;
+  }, [windowOcc]);
+  const variableTasks = fTasks.filter((t) => t.freq === "none");
+  const activePeriods = windowPeriods.filter((p) => byPeriod[p.key]);
+
+  return (
+    <div style={{ background: C.bg, color: C.ink, fontFamily: "'Hanken Grotesk', system-ui, sans-serif", minHeight: "100vh" }}>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+
+        <header className="fu mb-8">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 style={{ fontFamily: "'Fraunces', serif", color: C.ink }} className="text-3xl sm:text-4xl font-semibold leading-tight">Tableau de bord</h1>
+              <p style={{ color: C.muted }} className="mt-2 text-sm sm:text-base">Administratif et gestion de la maison.</p>
+            </div>
+            <button onClick={() => setEditing("new")} style={{ background: C.accent }} className="shrink-0 flex items-center gap-1.5 text-white text-sm font-medium px-3.5 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
+              <Icon name="plus" size={16} color="#fff" /> <span className="hidden sm:inline">Ajouter</span>
+            </button>
+          </div>
+          <p style={{ color: C.accent }} className="mt-1 text-sm font-medium">{rangeLabel}</p>
+
+          <div className="mt-6">
+            <div className="flex justify-between items-end mb-2">
+              <span style={{ color: C.muted }} className="text-xs uppercase tracking-wider">Sur les 18 prochains mois</span>
+              <span style={{ color: C.ink }} className="text-sm font-semibold">{doneCount}/{total} · {pct}%</span>
+            </div>
+            <div style={{ background: C.border }} className="h-2 rounded-full overflow-hidden">
+              <div style={{ width: pct + "%", background: C.accent }} className="h-full rounded-full transition-all duration-700" />
+            </div>
+          </div>
+
+          <div className="mt-5 flex gap-2 sm:gap-3 flex-wrap">
+            <Chip icon={<Icon name="alert" size={15} />} label="En retard" value={overdueCount} fg={C.overdue} bg={C.overdueSoft} />
+            <Chip icon={<Icon name="clock" size={15} />} label="Bientôt" value={soonCount} fg={C.soon} bg={C.soonSoft} />
+            <Chip icon={<Icon name="check" size={15} />} label="Complétées" value={doneCount} fg={C.done} bg={C.accentSoft} />
+          </div>
+        </header>
+
+        <section className="fu mb-10" style={{ animationDelay: ".05s" }}>
+          <SectionTitle>À surveiller</SectionTitle>
+          {watch.length === 0 ? (
+            <div style={{ background: C.surface, border: "1px solid " + C.border, color: C.muted }} className="rounded-2xl px-5 py-6 text-sm flex items-center gap-3">
+              <span style={{ color: C.accent }}><Icon name="list" size={18} /></span> Rien d'urgent pour l'instant. Tout est sous contrôle.
+            </div>
+          ) : (
+            <div className="grid gap-2.5">
+              {watch.map((o) => (
+                <div key={o.task.id + "-" + o.key} style={{ background: C.surface, border: "1px solid " + (o.s.state === "overdue" ? C.overdue + "55" : C.border) }} className="rounded-2xl px-4 py-3 flex items-center gap-3">
+                  <button onClick={() => toggleDone(o.task.id, o.year, o.month)} style={{ borderColor: C.faint }} className="shrink-0 w-6 h-6 rounded-full border-2 transition-colors hover:bg-black/5" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-medium text-sm sm:text-[15px] truncate">{o.task.title}</span>
+                      <Tag label={o.task.category} color={catColor(o.task.category)} />
+                    </div>
+                    <div style={{ color: C.muted }} className="text-xs mt-0.5">{MONTHS[o.month - 1]} {o.task.day} {o.year} · échéance {o.s.due.toLocaleDateString("fr-CA")}</div>
+                  </div>
+                  <span style={{ color: o.s.state === "overdue" ? C.overdue : C.soon, background: o.s.state === "overdue" ? C.overdueSoft : C.soonSoft }} className="shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full whitespace-nowrap">{daysLabel(o.s.days)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <div className="fu flex items-center gap-2 flex-wrap mb-5" style={{ animationDelay: ".1s" }}>
+          <FilterPill active={filter === "Tous"} onClick={() => setFilter("Tous")} color={C.ink}>Tous</FilterPill>
+          {categories.map((c) => <FilterPill key={c.name} active={filter === c.name} onClick={() => setFilter(c.name)} color={c.color}>{c.name}</FilterPill>)}
+          <button onClick={() => setManagingCats(true)} style={{ color: C.muted, border: "1px dashed " + C.border }} className="ml-auto text-xs font-medium px-3 py-1.5 rounded-full flex items-center gap-1.5 hover:bg-black/5 transition-colors">
+            <Icon name="sliders" size={13} /> Gérer les catégories
+          </button>
+        </div>
+
+        <section className="fu" style={{ animationDelay: ".12s" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {activePeriods.map((p) => (
+              <div key={p.key} style={{ background: C.surface, border: "1px solid " + C.border }} className="rounded-2xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <span style={{ color: C.faint }}><Icon name="calendar" size={16} /></span>
+                  <h3 style={{ fontFamily: "'Fraunces', serif", color: C.ink }} className="text-lg font-semibold">{MONTHS[p.month - 1]}</h3>
+                  <span style={{ color: C.faint }} className="text-sm">{p.year}</span>
+                </div>
+                <div className="grid gap-1">
+                  {byPeriod[p.key].map((o) => <TaskRow key={o.task.id + "-" + o.key} o={o} catColor={catColor} onToggle={() => toggleDone(o.task.id, o.year, o.month)} onEdit={() => setEditing(o.task)} />)}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {variableTasks.length > 0 && (
+            <div className="mt-4 rounded-2xl p-4" style={{ background: C.surface, border: "1px dashed " + C.border }}>
+              <h3 style={{ fontFamily: "'Fraunces', serif", color: C.muted }} className="text-lg mb-2">Sans date fixe</h3>
+              <div className="grid gap-1">
+                {variableTasks.map((t) => <TaskRow key={t.id} o={{ task: t, month: null, s: { done: false } }} catColor={catColor} onToggle={() => {}} onEdit={() => setEditing(t)} noCheck />)}
+              </div>
+            </div>
+          )}
+
+          {activePeriods.length === 0 && variableTasks.length === 0 && (
+            <p style={{ color: C.muted }} className="text-sm py-8 text-center">Aucune tâche dans cette catégorie.</p>
+          )}
+        </section>
+
+        <div className="mt-10 flex items-center justify-between flex-wrap gap-3">
+          <button onClick={resetAll} style={{ color: C.muted, border: "1px solid " + C.border }} className="text-xs flex items-center gap-1.5 px-3 py-2 rounded-full hover:bg-black/5 transition-colors">
+            <Icon name="rotate" size={13} /> Réinitialiser le suivi
+          </button>
+          <span style={{ color: C.faint }} className="text-xs">Sauvegardé sur cet appareil · {tasks.length} tâches</span>
+        </div>
+      </div>
+
+      <button onClick={() => setEditing("new")} style={{ background: C.accent }} className="fixed bottom-6 right-6 w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-white hover:scale-105 active:scale-95 transition-transform">
+        <Icon name="plus" size={24} color="#fff" />
+      </button>
+
+      {editing && <TaskModal task={editing === "new" ? null : editing} categories={categories} onClose={() => setEditing(null)} onSave={saveTask} onDelete={removeTask} />}
+      {managingCats && <CategoryModal categories={categories} onClose={() => setManagingCats(false)} onSave={commitCats} />}
+    </div>
+  );
+}
+
+function Chip({ icon, label, value, fg, bg }) {
+  return <div style={{ background: bg, color: fg }} className="flex items-center gap-2 px-3 py-2 rounded-xl">{icon}<span className="text-sm font-semibold">{value}</span><span className="text-xs opacity-80">{label}</span></div>;
+}
+function SectionTitle({ children }) {
+  return <h2 style={{ color: C.muted }} className="text-xs uppercase tracking-[0.18em] font-semibold mb-3">{children}</h2>;
+}
+function Tag({ label, color }) {
+  return <span style={{ color: color, background: color + "18" }} className="text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap">{label}</span>;
+}
+function FilterPill({ active, onClick, children, color }) {
+  return <button onClick={onClick} style={{ background: active ? color : "transparent", color: active ? "#fff" : C.muted, border: "1px solid " + (active ? color : C.border) }} className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors">{children}</button>;
+}
+function TaskRow({ o, onToggle, onEdit, noCheck, catColor }) {
+  const t = o.task, done = o.s.done, recurring = t.freq && t.freq !== "annual" && t.freq !== "none";
+  return (
+    <div className="flex items-start gap-2.5 py-1.5 rounded-lg px-1 -mx-1 hover:bg-black/[0.025] transition-colors">
+      {noCheck ? <span className="shrink-0 mt-0.5 w-5 h-5" /> : (
+        <button onClick={onToggle} style={{ borderColor: done ? C.done : C.faint, background: done ? C.done : "transparent" }} className="shrink-0 mt-0.5 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors">
+          {done && <Icon name="check" size={12} color="#fff" stroke={3} />}
+        </button>
+      )}
+      <div className="min-w-0 flex-1 cursor-pointer" onClick={onEdit}>
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span style={{ color: done ? C.faint : C.ink, textDecoration: done ? "line-through" : "none" }} className="text-sm leading-snug">{t.title}</span>
+          {recurring && <span style={{ color: C.accent }} title={FREQ_LABEL[t.freq]}><Icon name="repeat" size={12} /></span>}
+          {t.link && <span style={{ color: C.faint }}><Icon name="link" size={12} /></span>}
+        </div>
+        <div className="flex items-center gap-2 mt-0.5">
+          {o.month && <span style={{ color: C.muted }} className="text-[11px]">{MONTHS[o.month - 1].slice(0, 3)} {t.day}</span>}
+          {t.leadDays != null && o.month && <span style={{ color: C.faint }} className="text-[11px] flex items-center gap-0.5"><Icon name="bell" size={10} /> {t.leadDays}j</span>}
+          <Tag label={t.category} color={catColor(t.category)} />
+        </div>
+      </div>
+      <button onClick={onEdit} style={{ color: C.muted, border: "1px solid " + C.border }} className="shrink-0 opacity-80 hover:opacity-100 transition-opacity p-1.5 hover:bg-black/5 rounded-lg">
+        <Icon name="pencil" size={14} />
+      </button>
+    </div>
+  );
+}
+function TaskModal({ task, categories, onClose, onSave, onDelete }) {
+  const now = new Date().getMonth() + 1;
+  const [f, setF] = useState({
+    title: task?.title || "", category: task?.category || "Autre", freq: task?.freq || "annual",
+    month: task?.month || now, day: task?.day || 1, leadDays: task?.leadDays ?? 14,
+    notes: task?.notes || "", link: task?.link || "",
+  });
+  function set(k, v) { setF((p) => ({ ...p, [k]: v })); }
+  function submit() {
+    if (!f.title.trim()) return;
+    const needsMonth = f.freq === "annual" || f.freq === "semi" || f.freq === "quarterly";
+    onSave({
+      ...(task ? { id: task.id, completed: task.completed } : {}),
+      title: f.title.trim(), category: f.category, freq: f.freq,
+      month: f.freq === "none" ? null : (needsMonth ? (Number(f.month) || 1) : (Number(f.month) || null)),
+      day: Number(f.day) || 1, leadDays: Number(f.leadDays) || 0, notes: f.notes.trim(), link: f.link.trim(),
+    });
+  }
+  const inputStyle = { background: "#fff", border: "1px solid " + C.border, color: C.ink };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" style={{ background: "rgba(42,38,32,0.45)" }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.surface, fontFamily: "'Hanken Grotesk', sans-serif" }} className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-5">
+          <h3 style={{ fontFamily: "'Fraunces', serif", color: C.ink }} className="text-xl font-semibold">{task ? "Modifier la tâche" : "Nouvelle tâche"}</h3>
+          <button onClick={onClose} style={{ color: C.muted }} className="p-1 hover:bg-black/5 rounded-full"><Icon name="x" size={20} /></button>
+        </div>
+
+        <Field label="Titre">
+          <input value={f.title} onChange={(e) => set("title", e.target.value)} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm" placeholder="Ex. Ramonage de la cheminée" />
+        </Field>
+
+        <Field label="Récurrence">
+          <div className="flex flex-wrap gap-2">
+            {FREQS.map((fr) => (
+              <button key={fr.key} onClick={() => set("freq", fr.key)}
+                style={{ background: f.freq === fr.key ? C.accent : "#fff", color: f.freq === fr.key ? "#fff" : C.muted, border: "1px solid " + (f.freq === fr.key ? C.accent : C.border) }}
+                className="text-xs font-medium px-3 py-2 rounded-xl transition-colors">{fr.label}</button>
+            ))}
+          </div>
+        </Field>
+
+        <Field label="Catégorie">
+          <select value={f.category} onChange={(e) => set("category", e.target.value)} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm">
+            {categories.map((c) => <option key={c.name}>{c.name}</option>)}
+          </select>
+        </Field>
+
+        {f.freq !== "none" && (
+          <div className={"grid gap-3 " + (f.freq === "monthly" ? "grid-cols-1" : "grid-cols-2")}>
+            {f.freq !== "monthly" && (
+              <Field label="Mois de départ">
+                <select value={f.month} onChange={(e) => set("month", e.target.value)} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm">
+                  {MONTHS.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+                </select>
+              </Field>
+            )}
+            <Field label={f.freq === "monthly" ? "Jour du mois" : "Jour"}>
+              <input type="number" min="1" max="31" value={f.day} onChange={(e) => set("day", e.target.value)} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm" placeholder="1–31" />
+            </Field>
+          </div>
+        )}
+
+        {f.freq !== "none" && <p className="text-xs mb-3.5 -mt-1" style={{ color: C.accent }}>{occText(f.freq, Number(f.month))}</p>}
+
+        {f.freq !== "none" && (
+          <Field label="Rappel (jours avant chaque échéance)">
+            <input type="number" min="0" value={f.leadDays} onChange={(e) => set("leadDays", e.target.value)} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm" />
+          </Field>
+        )}
+
+        <Field label="Notes">
+          <textarea value={f.notes} onChange={(e) => set("notes", e.target.value)} rows={3} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm resize-none" placeholder="Détails, conditions…" />
+        </Field>
+        <Field label="Lien (optionnel)">
+          <input value={f.link} onChange={(e) => set("link", e.target.value)} style={inputStyle} className="w-full rounded-xl px-3 py-2.5 text-sm" placeholder="https://…" />
+        </Field>
+
+        <div className="flex items-center gap-3 mt-5">
+          <button onClick={submit} style={{ background: C.accent }} className="flex-1 text-white font-medium text-sm py-3 rounded-xl hover:opacity-90 transition-opacity">Enregistrer</button>
+          {task && (
+            <button onClick={() => onDelete(task.id)} style={{ color: C.overdue, border: "1px solid " + C.overdue + "40" }} className="px-4 py-3 rounded-xl text-sm hover:bg-black/5 transition-colors flex items-center gap-1.5">
+              <Icon name="trash" size={15} /> Supprimer
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+function CategoryModal({ categories, onClose, onSave }) {
+  const [rows, setRows] = useState(categories.map((c) => ({ ...c, orig: c.name })));
+  const [newName, setNewName] = useState("");
+  function setRow(i, patch) { setRows(rows.map((r, j) => (j === i ? { ...r, ...patch } : r))); }
+  function removeRow(i) { setRows(rows.filter((_, j) => j !== i)); }
+  function addRow() {
+    const n = newName.trim();
+    if (!n || rows.some((r) => r.name.toLowerCase() === n.toLowerCase())) return;
+    setRows([...rows, { name: n, color: "#8C8475", orig: null }]); setNewName("");
+  }
+  function save() {
+    const cleaned = [];
+    rows.forEach((r) => {
+      const nm = r.name.trim();
+      if (!nm || cleaned.some((c) => c.name.toLowerCase() === nm.toLowerCase())) return;
+      cleaned.push({ name: nm, color: r.color, orig: r.orig });
+    });
+    if (!cleaned.some((c) => c.name === "Autre")) cleaned.push({ name: "Autre", color: "#8C8475", orig: "Autre" });
+    onSave(cleaned);
+  }
+  const inputStyle = { background: "#fff", border: "1px solid " + C.border, color: C.ink };
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4" style={{ background: "rgba(42,38,32,0.45)" }} onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} style={{ background: C.surface, fontFamily: "'Hanken Grotesk', sans-serif" }} className="w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 sm:p-6 max-h-[92vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-1">
+          <h3 style={{ fontFamily: "'Fraunces', serif", color: C.ink }} className="text-xl font-semibold">Gérer les catégories</h3>
+          <button onClick={onClose} style={{ color: C.muted }} className="p-1 hover:bg-black/5 rounded-full"><Icon name="x" size={20} /></button>
+        </div>
+        <p style={{ color: C.muted }} className="text-xs mb-4">Renomme, recolore ou supprime. Les tâches d'une catégorie supprimée passent à « Autre ».</p>
+
+        <div className="grid gap-2">
+          {rows.map((r, i) => {
+            const locked = r.orig === "Autre";
+            return (
+              <div key={i} className="flex items-center gap-2">
+                <input type="color" value={r.color} onChange={(e) => setRow(i, { color: e.target.value })} style={{ width: 34, height: 34, border: "1px solid " + C.border, borderRadius: 8, padding: 2, background: "#fff", cursor: "pointer" }} />
+                <input value={r.name} onChange={(e) => setRow(i, { name: e.target.value })} readOnly={locked} style={{ ...inputStyle, opacity: locked ? 0.6 : 1 }} className="flex-1 rounded-xl px-3 py-2 text-sm" />
+                <button onClick={() => removeRow(i)} disabled={locked} style={{ color: locked ? C.faint : C.overdue }} className="p-2 rounded-lg hover:bg-black/5 disabled:opacity-40 transition-colors"><Icon name="trash" size={15} /></button>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="flex items-center gap-2 mt-3">
+          <input value={newName} onChange={(e) => setNewName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addRow()} placeholder="Nouvelle catégorie" style={inputStyle} className="flex-1 rounded-xl px-3 py-2 text-sm" />
+          <button onClick={addRow} style={{ background: C.accentSoft, color: C.accent }} className="px-3 py-2 rounded-xl text-sm font-medium flex items-center gap-1"><Icon name="plus" size={15} /> Ajouter</button>
+        </div>
+
+        <div className="flex items-center gap-3 mt-6">
+          <button onClick={save} style={{ background: C.accent }} className="flex-1 text-white font-medium text-sm py-3 rounded-xl hover:opacity-90 transition-opacity">Enregistrer</button>
+          <button onClick={onClose} style={{ color: C.muted, border: "1px solid " + C.border }} className="px-4 py-3 rounded-xl text-sm hover:bg-black/5 transition-colors">Annuler</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+function Field({ label, children }) {
+  return <label className="block mb-3.5"><span style={{ color: C.muted }} className="text-xs font-medium mb-1.5 block">{label}</span>{children}</label>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
