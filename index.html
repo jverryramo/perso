@@ -178,6 +178,8 @@ function App() {
   useEffect(() => {
     const tasksRef = fbDb.ref("tasks");
     const catsRef = fbDb.ref("categories");
+    let firstTaskLoad = true;
+    let firstCatLoad = true;
     const onTasks = tasksRef.on("value", (snap) => {
       if (skipFbSync.current) { skipFbSync.current = false; return; }
       const val = snap.val();
@@ -185,14 +187,22 @@ function App() {
         const m = migrate(val);
         setTasks(m);
         try { localStorage.setItem(KEY, JSON.stringify(m)); } catch {}
+      } else if (firstTaskLoad && !val) {
+        const local = loadTasks();
+        if (local && local.length > 0) tasksRef.set(local);
       }
+      firstTaskLoad = false;
     });
     const onCats = catsRef.on("value", (snap) => {
       const val = snap.val();
       if (val && Array.isArray(val)) {
         setCategories(val);
         try { localStorage.setItem(CKEY, JSON.stringify(val)); } catch {}
+      } else if (firstCatLoad && !val) {
+        const local = loadCats();
+        if (local && local.length > 0) catsRef.set(local);
       }
+      firstCatLoad = false;
     });
     return () => { tasksRef.off("value", onTasks); catsRef.off("value", onCats); };
   }, []);
