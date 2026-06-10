@@ -79,28 +79,9 @@ function Icon({ name, size = 16, color = "currentColor", stroke = 2, fill = "non
   );
 }
 
-const DEFAULTS = [
-  { id:"d1", title:"Déclaration de revenus (fédéral + Québec)", category:"Impôts", freq:"annual", month:4, day:30, leadDays:45, notes:"Date limite le 30 avril. Travailleurs autonomes : produire avant le 15 juin, mais tout solde dû reste payable le 30 avril.", link:"" },
-  { id:"d2", title:"Cotisation REER", category:"Finances", freq:"annual", month:3, day:1, leadDays:30, notes:"Date limite ~60 jours après la fin d'année pour déduire sur l'année précédente.", link:"" },
-  { id:"d3", title:"Compilation des frais médicaux", category:"Santé", freq:"annual", month:2, day:15, leadDays:30, notes:"Rassembler reçus et remboursements d'assurance pour le crédit d'impôt.", link:"" },
-  { id:"d4", title:"Réinitialisation des droits CELI", category:"Finances", freq:"annual", month:1, day:1, leadDays:15, notes:"Nouveaux droits de cotisation au 1er janvier.", link:"" },
-  { id:"d5", title:"Cotisation REEE (subvention)", category:"Finances", freq:"annual", month:12, day:15, leadDays:30, notes:"Cotiser avant le 31 déc pour la subvention de l'année en cours.", link:"" },
-  { id:"d6", title:"Renouvellement assurance auto", category:"Assurances", freq:"annual", month:6, day:1, leadDays:30, notes:"Ajuste le mois selon ta police. Magasiner avant le renouvellement.", link:"" },
-  { id:"d7", title:"Renouvellement assurance habitation", category:"Assurances", freq:"annual", month:9, day:1, leadDays:30, notes:"Ajuste le mois selon ta police.", link:"" },
-  { id:"d8", title:"Immatriculation véhicule (SAAQ)", category:"Véhicule", freq:"annual", month:3, day:1, leadDays:21, notes:"Renouvellement annuel — ajuste le mois selon ton avis de la SAAQ.", link:"https://saaq.gouv.qc.ca" },
-  { id:"d9", title:"Permis de conduire (SAAQ)", category:"SAAQ", freq:"annual", month:1, day:1, leadDays:30, notes:"Lié à ta date de naissance ; cycle de 2 à 8 ans. Ajuste mois/année selon ton dossier.", link:"https://saaq.gouv.qc.ca" },
-  { id:"d10", title:"Pneus d'hiver — installation", category:"Véhicule", freq:"annual", month:11, day:1, leadDays:14, notes:"Obligatoires du 1er déc au 15 mars au Québec.", link:"" },
-  { id:"d11", title:"Pneus d'été — retrait", category:"Véhicule", freq:"annual", month:4, day:1, leadDays:14, notes:"", link:"" },
-  { id:"d13", title:"Bilan financier / révision du budget", category:"Finances", freq:"annual", month:1, day:15, leadDays:14, notes:"Faire le point sur l'année écoulée et planifier.", link:"" },
-  { id:"d14", title:"Renouvellement domaines & abonnements", category:"Abonnements", freq:"annual", month:1, day:1, leadDays:21, notes:"Ajuste selon tes dates réelles de renouvellement.", link:"" },
-  { id:"h1", title:"Changer le filtre de l'échangeur d'air / fournaise", category:"Maison", freq:"quarterly", month:1, day:1, leadDays:7, notes:"Aux 3 mois environ selon le type de filtre.", link:"" },
-  { id:"h2", title:"Tester détecteurs de fumée et CO", category:"Maison", freq:"semi", month:3, day:1, leadDays:7, notes:"Vérifier le fonctionnement et remplacer les piles au besoin.", link:"" },
-  { id:"h3", title:"Entretien thermopompe / climatiseur", category:"Maison", freq:"annual", month:5, day:1, leadDays:14, notes:"Nettoyage des filtres et inspection avant la saison chaude.", link:"" },
-  { id:"h4", title:"Entretien chauffe-eau et nettoyage gouttières", category:"Maison", freq:"annual", month:10, day:1, leadDays:14, notes:"Purge du chauffe-eau, nettoyage des gouttières avant l'hiver.", link:"" },
-  { id:"h5", title:"Hivernisation extérieure (eau, boyaux, terrasse)", category:"Maison", freq:"annual", month:10, day:15, leadDays:14, notes:"Fermer l'eau extérieure, ranger boyaux et mobilier.", link:"" },
-];
+const DEFAULTS = [];
 
-const KEY = "admin-tasks-v1", CKEY = "admin-cats-v1";
+const KEY = "admin-tasks-v2", CKEY = "admin-cats-v2";
 function migrate(list) {
   return list.map((x) => {
     const freq = x.freq || (x.month ? "annual" : "none");
