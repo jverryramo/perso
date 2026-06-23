@@ -103,7 +103,12 @@ function Icon({ name, size = 16, color = "currentColor", stroke = 2, fill = "non
 
 const DEFAULTS = [];
 
-const KEY = "admin-tasks-v2", CKEY = "admin-cats-v2";
+// Espace de travail : chaque personne a ses propres données via ?u=nom dans l'URL.
+// Sans paramètre = espace par défaut (les données existantes de Jérôme).
+const WS = ((new URLSearchParams(location.search).get("u")) || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+const KEY = "admin-tasks-v2" + (WS ? "-" + WS : ""), CKEY = "admin-cats-v2" + (WS ? "-" + WS : "");
+const TPATH = WS ? "ws/" + WS + "/tasks" : "tasks";
+const CPATH = WS ? "ws/" + WS + "/categories" : "categories";
 function migrate(list) {
   return list.map((x) => {
     const freq = x.freq || (x.month ? "annual" : "none");
@@ -112,9 +117,9 @@ function migrate(list) {
   });
 }
 function loadTasks() { try { const r = localStorage.getItem(KEY); return r ? migrate(JSON.parse(r)) : null; } catch { return null; } }
-function saveTasks(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} try { fbDb.ref("tasks").set(t); } catch {} }
+function saveTasks(t) { try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {} try { fbDb.ref(TPATH).set(t); } catch {} }
 function loadCats() { try { const r = localStorage.getItem(CKEY); return r ? JSON.parse(r) : null; } catch { return null; } }
-function saveCats(c) { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} try { fbDb.ref("categories").set(c); } catch {} }
+function saveCats(c) { try { localStorage.setItem(CKEY, JSON.stringify(c)); } catch {} try { fbDb.ref(CPATH).set(c); } catch {} }
 
 function startOfToday() { const d = new Date(); d.setHours(0,0,0,0); return d; }
 function buildPeriods(start, count) {
@@ -184,8 +189,8 @@ function App() {
   const skipFbSync = useRef(false);
 
   useEffect(() => {
-    const tasksRef = fbDb.ref("tasks");
-    const catsRef = fbDb.ref("categories");
+    const tasksRef = fbDb.ref(TPATH);
+    const catsRef = fbDb.ref(CPATH);
     let firstTaskLoad = true;
     let firstCatLoad = true;
     const onTasks = tasksRef.on("value", (snap) => {
@@ -290,7 +295,7 @@ function App() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <h1 style={{ fontFamily: "'Fraunces', serif", color: C.ink }} className="text-3xl sm:text-4xl font-semibold leading-tight">Tableau de bord</h1>
-              <p style={{ color: C.muted }} className="mt-2 text-sm sm:text-base">Administratif et gestion de la maison.</p>
+              <p style={{ color: C.muted }} className="mt-2 text-sm sm:text-base">Administratif et gestion de la maison.{WS ? " · Espace de " + WS.charAt(0).toUpperCase() + WS.slice(1) : ""}</p>
             </div>
             <button onClick={() => setEditing("new")} style={{ background: C.accent }} className="shrink-0 flex items-center gap-1.5 text-white text-sm font-medium px-3.5 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
               <Icon name="plus" size={16} color="#fff" /> <span className="hidden sm:inline">Ajouter</span>
